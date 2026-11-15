@@ -1,0 +1,20 @@
+{
+  "name": "reedance-cms",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Free Cloudflare Workers + D1 metadata catalog for Reedance Android. No pack/audio/image hosting.",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "gen:key": "node scripts/generate-catalog-key.mjs",
+    "gen:fixture": "node scripts/generate-catalog-fixture.mjs",
+    "dev:public": "wrangler dev --config wrangler.public.toml --ip 0.0.0.0 --port 8787",
+    "dev:admin": "wrangler dev --config wrangler.admin.toml --ip 0.0.0.0 --port 8788",
+    "d1:local": "wrangler d1 migrations apply reedance-catalog --local --config wrangler.public.toml",
+    "deploy:public": "wrangler deploy --config wrangler.public.toml",
+    "deploy:admin": "wrangler deploy --config wrangler.admin.toml"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

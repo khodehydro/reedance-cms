@@ -1,0 +1,11 @@
+# Copy to .dev.vars (gitignored) for wrangler dev. Never use cat-test-v1 in production.
+ENVIRONMENT=development
+ALLOW_LOCAL_ADMIN=true
+ADMIN_ORIGIN=http://127.0.0.1:8788
+CATALOG_KEY_ID=cat-dev-local
+ALLOWED_MANIFEST_HOSTS=content.example.invalid
+ALLOWED_COVER_HOSTS=content.example.invalid
+SUPPORTED_LANGUAGE_CODES=en,es,ko
+PRETTY_PAYLOAD=true
+# CATALOG_SIGNING_PKCS8 is a secret: paste PEM on one line or use wrangler secret / .dev.vars locally.
+# CATALOG_SIGNING_PKCS8=-----BEGIN PRIVATE KEY-----...

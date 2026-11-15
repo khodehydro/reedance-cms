@@ -1,0 +1,14 @@
+name = "reedance-catalog-public"
+main = "src/workers/public.js"
+compatibility_date = "2025-11-01"
+workers_dev = true
+
+[vars]
+ENVIRONMENT = "production"
+
+# Replace database_id after: npx wrangler d1 create reedance-catalog
+[[d1_databases]]
+binding = "DB"
+database_name = "reedance-catalog"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"

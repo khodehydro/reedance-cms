@@ -1,0 +1,26 @@
+name = "reedance-catalog-admin"
+main = "src/workers/admin.js"
+compatibility_date = "2025-11-01"
+# Hide the default workers.dev route. Still cover preview/version URLs with Access.
+workers_dev = false
+
+[vars]
+ENVIRONMENT = "production"
+CATALOG_KEY_ID = "cat-REPLACE_ME"
+ALLOWED_MANIFEST_HOSTS = "REPLACE_CONTENT_HOST"
+ALLOWED_COVER_HOSTS = "REPLACE_CONTENT_HOST"
+SUPPORTED_LANGUAGE_CODES = "en,es,ko"
+ADMIN_ORIGIN = "https://admin-catalog.example.com"
+ACCESS_TEAM_DOMAIN = "REPLACE_TEAM.cloudflareaccess.com"
+ACCESS_AUD = "REPLACE_ACCESS_AUD"
+ACCESS_ALLOWED_EMAILS = "owner@example.com"
+
+# Replace database_id after: npx wrangler d1 create reedance-catalog
+[[d1_databases]]
+binding = "DB"
+database_name = "reedance-catalog"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+# Secrets (never commit):
+#   npx wrangler secret put CATALOG_SIGNING_PKCS8 --config wrangler.admin.toml

@@ -1,0 +1,15 @@
+node_modules/
+.wrangler/
+.dev.vars
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.p8
+*.pkcs8
+dist/
+coverage/
+.DS_Store
+*.log
+.cache/
