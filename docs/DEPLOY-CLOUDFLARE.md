@@ -22,10 +22,13 @@ R2، Images، KV، Pages، Supabase، Workers Paid لازم نیستند و نب
 
 ساب‌دامنه‌های پیشنهادی (zone باید روی Cloudflare باشد):
 
-| نقش | مثال | Worker |
+| نقش | دامنهٔ reedance.ir | Worker |
 | --- | --- | --- |
-| API عمومی | `catalog.example.com` | public |
-| پنل مدیریت | `admin-catalog.example.com` | admin + Access روی کل دامنه |
+| فایل `.rdpack` / `latest.json` | `dl.reedance.ir` (DNS only، نه Worker) | هاست مالک |
+| API عمومی | `catalog.reedance.ir` | public |
+| پنل مدیریت | `admin-catalog.reedance.ir` | admin + Access روی کل دامنه |
+
+چک‌لیست شماره‌دار همین دامنه: [REEDANCE_IR_STEPS.md](REEDANCE_IR_STEPS.md)
 
 دامنهٔ هاست فایل (`.rdpack` / `latest.json`) **خارج از این Workerها** می‌ماند و نباید پروکسی دانلود فایل به این Workerها باشد.
 
