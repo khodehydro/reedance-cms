@@ -1,149 +1,117 @@
-# قدم‌به‌قدم برای reedance.ir
+# از صفر تا پنل مدیریت — reedance.ir
 
-وضعیت فعلی DNS:
+دست نزن:
 
-- `dl.reedance.ir` → `130.185.79.172` (هاست فایل؛ درست است)
-- `reedance.ir` → همان IP (سایت اصلی؛ برای CMS لازم نیست)
-- هنوز `catalog` و `admin-catalog` نساز
+- `reedance.ir` — لندینگ (Workers/Pages)
+- `dl.reedance.ir` — هاست دانلود
 
-## ۱. ابر نارنجیِ دانلود را خاموش کن
+پنل اینجاست: **`https://admin-catalog.reedance.ir/admin`**
 
-در همان جدول DNS روی ابر نارنجی **`dl.reedance.ir`** کلیک کن تا **خاکستری / DNS only** شود، بعد Save.
+API اندروید جداست: `https://catalog.reedance.ir` (بعد از پنل)
 
-فایل `.rdpack` نباید از پروکسی Cloudflare رد شود. هشدار زرد روی `reedance.ir` را فعلاً نادیده بگیر.
+---
 
-## ۲. HTTPS واقعی روی سرور دانلود
+## ۱. روی کامپیوتر Node و مخزن
 
-روی همان سرور `130.185.79.172` برای `dl.reedance.ir` گواهی TLS بگذار (مثلاً Let’s Encrypt). بعد در مرورگر باز کن:
+Node ۲۰ یا بالاتر. بعد:
 
-`https://dl.reedance.ir`
+```bash
+git clone -b arena/ba1b9c5d-reedance-cms https://github.com/khodehydro/reedance-cms.git
+cd reedance-cms
+```
 
-باید بدون هشدار گواهی باز شود. HTTP کافی نیست؛ اندروید فقط HTTPS می‌پذیرد.
-
-## ۳. مطمئن شو zone فعال است
-
-بالای داشبورد Cloudflare وضعیت `reedance.ir` باید **Active** باشد، نه Pending. اگر هنوز Active نیست، Nameserverهای Cloudflare را در nic.ir ست کن و صبر کن.
-
-## ۴. روی کامپیوتر خودت وارد Cloudflare شو
-
-در پوشهٔ همین مخزن:
+## ۲. ورود به همان حساب Cloudflare
 
 ```bash
 npx wrangler login
 ```
 
-مرورگر باز می‌شود؛ به همان حسابی که `reedance.ir` را دارد وصل کن.
+باید همان حسابی باشد که دامنهٔ `reedance.ir` در آن است.
 
-## ۵. دیتابیس D1 بساز
+## ۳. دیتابیس D1
 
 ```bash
 npx wrangler d1 create reedance-catalog
 ```
 
-از خروجی، `database_id` را کپی کن و در **هر دو** فایل بگذار:
-
-- `wrangler.public.toml`
-- `wrangler.admin.toml`
-
-جای `REPLACE_WITH_D1_DATABASE_ID`.
-
-بعد:
+از خروجی `database_id` را کپی کن. در **هر دو** فایل `wrangler.public.toml` و `wrangler.admin.toml` جای `REPLACE_WITH_D1_DATABASE_ID` بگذار.
 
 ```bash
 npx wrangler d1 migrations apply reedance-catalog --remote --config wrangler.public.toml
 ```
 
-## ۶. کلید امضای کاتالوگ بساز
+## ۴. کلید امضای کاتالوگ
 
 ```bash
 npm run gen:key
 ```
 
-سه چیز می‌دهد:
-
-1. `catalogKeyId` → در `wrangler.admin.toml` جای `cat-REPLACE_ME`
-2. PEM خصوصی → در ترمینال:
+- `catalogKeyId` → در `wrangler.admin.toml` جای `cat-REPLACE_ME`
+- PEM را در چت نگذار. در ترمینال:
 
 ```bash
 npx wrangler secret put CATALOG_SIGNING_PKCS8 --config wrangler.admin.toml
 ```
 
-کل PEM را پیست کن. در Git/چت نگذار.
+کل بلوک `BEGIN PRIVATE KEY` تا `END` را پیست کن.
+- `ed25519PublicKeyBase64url` را برای اندروید ذخیره کن.
 
-3. `ed25519PublicKeyBase64url` → برای اندروید نگه دار (بعداً در APK pin می‌شود)
+## ۵. تیم Zero Trust بساز
 
-## ۷. دو Worker را deploy کن
+Dashboard → **Zero Trust** (یک‌بار Free را فعال کن و نام تیم را بساز).
+
+آدرس تیم می‌شود چیزی مثل `reedance.cloudflareaccess.com`.  
+همین را در `wrangler.admin.toml` بگذار:
+
+`ACCESS_TEAM_DOMAIN = "reedance.cloudflareaccess.com"`
+
+`ACCESS_ALLOWED_EMAILS` را ایمیل همان حساب Cloudflare خودت بگذار.
+
+## ۶. اپلیکیشن Access برای پنل
+
+Zero Trust → Access → Applications → Add → **Self-hosted**:
+
+- Application name: `Reedance Catalog Admin`
+- Public hostname: `admin-catalog.reedance.ir`
+- Path خالی
+- Policy: **Allow** → Include → Emails → ایمیل خودت
+
+Save. از صفحهٔ Application مقدار **Application Audience (AUD)** را کپی کن و در toml:
+
+`ACCESS_AUD = "...."`
+
+## ۷. Deploy ورکر ادمین
+
+```bash
+npx wrangler deploy --config wrangler.admin.toml
+```
+
+این ورکر `workers.dev` عمومی ندارد.
+
+## ۸. دامنهٔ پنل را به ورکر وصل کن
+
+Dashboard → Workers & Pages → **reedance-catalog-admin** → Settings → Domains & Routes → **Add Custom Domain**
+
+دامنه: `admin-catalog.reedance.ir`
+
+رکورد A دستی نساز. به `reedance.ir` و `dl.reedance.ir` وصلش نکن.
+
+## ۹. باز کردن پنل
+
+در مرورگر:
+
+**https://admin-catalog.reedance.ir/admin**
+
+باید صفحهٔ لاگین Cloudflare Access بیاید. با همان ایمیل Allow وارد شو. بعد فرم زبان/آهنگ/Publish ظاهر می‌شود.
+
+اگر `403` دیدی: AUD / تیم / ایمیل را چک کن و دوباره `npx wrangler deploy --config wrangler.admin.toml`.
+
+## ۱۰. بعد از بالا آمدن پنل (API اندروید)
 
 ```bash
 npx wrangler deploy --config wrangler.public.toml
-npx wrangler deploy --config wrangler.admin.toml
 ```
 
-## ۸. دامنهٔ سفارشی Worker — بدون رکورد A
+Custom Domain برای `reedance-catalog-public`: `catalog.reedance.ir`
 
-در داشبورد **نه** Add record. برو:
-
-Workers & Pages → `reedance-catalog-public` → Settings → Domains & Routes → Add Custom Domain  
-→ `catalog.reedance.ir`
-
-Workers & Pages → `reedance-catalog-admin` → Settings → Domains & Routes → Add Custom Domain  
-→ `admin-catalog.reedance.ir`
-
-خود Cloudflare رکورد DNS را می‌سازد.
-
-## ۹. Access فقط برای ادمین
-
-Zero Trust → Access → Applications → Add an application → Self-hosted:
-
-- Application domain: `admin-catalog.reedance.ir`
-- Policy: Allow فقط ایمیل خودت
-
-از تنظیمات Application این‌ها را بردار:
-
-- Application Audience (**AUD**)
-- تیم: چیزی شبیه `xxx.cloudflareaccess.com`
-
-در `wrangler.admin.toml`:
-
-- `ACCESS_TEAM_DOMAIN`
-- `ACCESS_AUD`
-- `ACCESS_ALLOWED_EMAILS`
-
-دوباره:
-
-```bash
-npx wrangler deploy --config wrangler.admin.toml
-```
-
-در Access، preview/workers.dev مربوط به admin را هم بپوشان یا غیرفعال کن.
-
-## ۱۰. تست
-
-مرورگر عادی (بدون لاگین):
-
-`https://catalog.reedance.ir/v1/languages`
-
-باید **503** باشد (هنوز publish نشده). اگر HTML سایت یا timeout دیدی، Custom Domain اشتباه وصل شده.
-
-`https://admin-catalog.reedance.ir/admin` باید صفحهٔ لاگین Access باشد، نه فرم باز.
-
-## ۱۱. اولین محتوا
-
-1. `.rdpack` را روی `https://dl.reedance.ir/...` بگذار  
-2. بعد `latest.json` را در همان مسیر بگذار  
-3. در پنل admin زبان/آهنگ/`manifestUrl` را ثبت کن و Publish بزن  
-
-URL نمونه:
-
-`https://dl.reedance.ir/reedance/en/quiet-step/latest.json`
-
-## ۱۲. اندروید
-
-بعد از publish، به ایجنت اندروید بده:
-
-- `https://catalog.reedance.ir`
-- `catalogKeyId`
-- public key مرحلهٔ ۶
-- allowlist هاست: `dl.reedance.ir`
-
-متن کامل: [ANDROID_HANDOFF.md](ANDROID_HANDOFF.md)
+تست: `https://catalog.reedance.ir/v1/languages` باید قبل از Publish مقدار **503** بدهد.
