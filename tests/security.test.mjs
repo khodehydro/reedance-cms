@@ -165,7 +165,7 @@ test("production admin can use a wrangler shared secret instead of paid Zero Tru
   };
   const loginPage = await handleAdminRequest(new Request("https://admin-catalog.reedance.ir/admin"), { store, env });
   assert.equal(loginPage.status, 200);
-  assert.match(await loginPage.text(), /ورود پنل کاتالوگ/);
+  assert.match(await loginPage.text(), /ورود به ری‌دنس/);
   const denied = await handleAdminRequest(new Request("https://admin-catalog.reedance.ir/admin/v1/state"), { store, env });
   assert.equal(denied.status, 401);
   const bad = await handleAdminRequest(new Request("https://admin-catalog.reedance.ir/admin/v1/unlock", {

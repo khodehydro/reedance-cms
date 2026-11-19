@@ -8,7 +8,7 @@ export function adminHeaders(extra = {}) {
     "x-content-type-options": "nosniff",
     "referrer-policy": "no-referrer",
     "x-frame-options": "DENY",
-    "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+    "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' https://reedance.ir; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
     ...extra,
   };
 }
