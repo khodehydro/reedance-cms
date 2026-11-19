@@ -6,7 +6,7 @@ workers_dev = false
 
 [vars]
 ENVIRONMENT = "production"
-CATALOG_KEY_ID = "cat-REPLACE_ME"
+CATALOG_KEY_ID = "cat-reedance-1"
 ALLOWED_MANIFEST_HOSTS = "dl.reedance.ir"
 ALLOWED_COVER_HOSTS = "dl.reedance.ir"
 SUPPORTED_LANGUAGE_CODES = "en,es,tr,ru,ko,de"
