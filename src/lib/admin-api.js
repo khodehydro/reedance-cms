@@ -3,7 +3,7 @@ import { CasConflictError, HttpError, errorResponse, jsonError } from "./errors.
 import { adminHeaders, readJsonBody } from "./http.js";
 import { assertCsrfAndOrigin, createCsrfToken, csrfCookie } from "./csrf.js";
 import { catalogConfig } from "./config.js";
-import { createAdminSessionCookie, requireAdminAccess, sharedSecretConfigured, verifySharedSecret } from "./access.js";
+import { createAdminSessionCookie, requireAdminAccess, sharedSecretConfigured, unlockOriginAllowed, verifySharedSecret } from "./access.js";
 import { previewCatalog } from "./preview.js";
 import { publishCatalog } from "./publish.js";
 import { validateLanguageInput, validateSongInput, validateDraftUrls, compareIdentity } from "./validate.js";
@@ -75,14 +75,18 @@ export async function handleAdminRequest(request, { store, env }) {
       });
     }
     if (request.method === "POST" && path === "/admin/v1/unlock") {
+      const unlockHeaders = { "content-type": "text/html; charset=utf-8", "referrer-policy": "same-origin" };
       if (!sharedSecretConfigured(env)) {
-        throw new HttpError(403, "access_denied", "Admin shared secret is not configured");
+        return new Response(unlockHtml("رمز ادمین روی ورکر تنظیم نشده است."), {
+          status: 403,
+          headers: adminHeaders(unlockHeaders),
+        });
       }
-      const origin = request.headers.get("origin");
-      const referer = request.headers.get("referer") || "";
-      const expected = catalogConfig(env).adminOrigin;
-      if (!expected || (origin !== expected && !referer.startsWith(`${expected}/`) && referer !== expected)) {
-        throw new HttpError(403, "bad_origin", "Origin does not match ADMIN_ORIGIN");
+      if (!unlockOriginAllowed(request, env)) {
+        return new Response(unlockHtml("درخواست از دامنهٔ پنل نبود. آدرس باید دقیقاً admin-catalog.reedance.ir باشد."), {
+          status: 403,
+          headers: adminHeaders(unlockHeaders),
+        });
       }
       const type = (request.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
       let secret = "";
@@ -93,8 +97,15 @@ export async function handleAdminRequest(request, { store, env }) {
         const body = await readJsonBody(request);
         secret = body.secret || "";
       }
-      await verifySharedSecret(secret, env);
-      const location = `${expected}/admin`;
+      try {
+        await verifySharedSecret(secret, env);
+      } catch {
+        return new Response(unlockHtml("رمز نادرست است. همان مقدار ADMIN_SHARED_SECRET را بدون فاصله بزن؛ اگر یادت نیست در wrangler دوباره secret put کن."), {
+          status: 403,
+          headers: adminHeaders(unlockHeaders),
+        });
+      }
+      const location = `${catalogConfig(env).adminOrigin}/admin`;
       return new Response(null, {
         status: 303,
         headers: adminHeaders({

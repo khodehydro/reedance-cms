@@ -71,8 +71,12 @@ export function cloudflareAccessConfigured(env) {
     && config.allowedEmails.length > 0;
 }
 
+export function adminSecret(env) {
+  return String(env.ADMIN_SHARED_SECRET || "").trim();
+}
+
 export function sharedSecretConfigured(env) {
-  return Boolean(env.ADMIN_SHARED_SECRET) && env.ADMIN_SHARED_SECRET.length >= 16;
+  return adminSecret(env).length >= 16;
 }
 
 async function hmacHex(secret, message) {
@@ -90,7 +94,7 @@ async function hmacHex(secret, message) {
 export async function createAdminSessionCookie(request, env) {
   const exp = Date.now() + 12 * 60 * 60 * 1000;
   const body = `v1.${exp}`;
-  const token = `${body}.${await hmacHex(env.ADMIN_SHARED_SECRET, body)}`;
+  const token = `${body}.${await hmacHex(adminSecret(env), body)}`;
   const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
   return `reedance_admin=${token}; Path=/; HttpOnly; SameSite=Strict${secure}; Max-Age=43200`;
 }
@@ -106,19 +110,35 @@ export async function requireSharedSecretSession(request, env) {
   if (!Number.isFinite(exp) || exp < Date.now()) {
     throw new HttpError(401, "login_required", "Admin session expired");
   }
-  const expected = await hmacHex(env.ADMIN_SHARED_SECRET, body);
+  const expected = await hmacHex(adminSecret(env), body);
   if (!bytesEqual(utf8Encode(parts[2]), utf8Encode(expected))) {
     throw new HttpError(401, "login_required", "Admin session invalid");
   }
   return { email: "operator@local", sharedSecret: true };
 }
 
+export function unlockOriginAllowed(request, env) {
+  const expected = catalogConfig(env).adminOrigin;
+  if (!expected) return false;
+  const origin = request.headers.get("origin");
+  const referer = request.headers.get("referer") || "";
+  if (origin === expected || referer === expected || referer.startsWith(`${expected}/`)) return true;
+  if (origin && origin !== "null" && origin !== expected) return false;
+  try {
+    const want = new URL(expected).host;
+    const host = (request.headers.get("host") || "").split(":")[0].toLowerCase();
+    return host === want.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
 export async function verifySharedSecret(secret, env) {
   if (!sharedSecretConfigured(env) || typeof secret !== "string") {
     throw new HttpError(403, "access_denied", "Admin shared secret is not configured");
   }
-  const a = utf8Encode(secret);
-  const b = utf8Encode(env.ADMIN_SHARED_SECRET);
+  const a = utf8Encode(String(secret).trim());
+  const b = utf8Encode(adminSecret(env));
   if (!bytesEqual(a, b)) throw new HttpError(403, "access_denied", "Invalid admin secret");
 }
 

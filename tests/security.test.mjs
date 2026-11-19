@@ -185,4 +185,10 @@ test("production admin can use a wrangler shared secret instead of paid Zero Tru
     headers: { cookie },
   }), { store, env });
   assert.equal(authed.status, 200);
+  const noOrigin = await handleAdminRequest(new Request("https://admin-catalog.reedance.ir/admin/v1/unlock", {
+    method: "POST",
+    headers: { host: "admin-catalog.reedance.ir", "content-type": "application/x-www-form-urlencoded" },
+    body: `secret=${env.ADMIN_SHARED_SECRET}`,
+  }), { store, env });
+  assert.equal(noOrigin.status, 303);
 });
