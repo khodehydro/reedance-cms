@@ -3,6 +3,10 @@ main = "src/workers/public.js"
 compatibility_date = "2025-11-01"
 workers_dev = true
 
+[[routes]]
+pattern = "catalog.reedance.ir"
+custom_domain = true
+
 [vars]
 ENVIRONMENT = "production"
 

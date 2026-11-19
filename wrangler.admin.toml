@@ -4,6 +4,11 @@ compatibility_date = "2025-11-01"
 # Hide the default workers.dev route. Still cover preview/version URLs with Access.
 workers_dev = false
 
+# Without a route, wrangler 4 uploads a version but leaves the custom domain on the old vars.
+[[routes]]
+pattern = "admin-catalog.reedance.ir"
+custom_domain = true
+
 [vars]
 ENVIRONMENT = "production"
 CATALOG_KEY_ID = "cat-reedance-1"
