@@ -27,5 +27,6 @@ export function errorResponse(error) {
   if (error instanceof HttpError) {
     return jsonError(error.status, error.code, error.message);
   }
-  return jsonError(500, "internal", "Internal error");
+  const raw = String(error?.message || error).replace(/-----BEGIN[\s\S]+?-----END [^-]+-----/g, "[redacted]").slice(0, 180);
+  return jsonError(500, "internal", raw || "Internal error");
 }

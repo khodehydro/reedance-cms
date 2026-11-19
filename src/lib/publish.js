@@ -1,5 +1,5 @@
 import { fromBase64Url, sha256Hex, utf8Decode } from "./bytes.js";
-import { MAX_PAYLOAD_BYTES } from "./constants.js";
+import { KEY_ID_RE, MAX_PAYLOAD_BYTES } from "./constants.js";
 import { catalogConfig } from "./config.js";
 import { CasConflictError, HttpError } from "./errors.js";
 import { isoNow } from "./http.js";
@@ -113,31 +113,49 @@ export async function publishCatalog(store, env, { draftRevision, confirmHostFil
   if (!env.CATALOG_SIGNING_PKCS8) {
     throw new HttpError(503, "signing_unavailable", "Online publish needs CATALOG_SIGNING_PKCS8");
   }
+  if (!KEY_ID_RE.test(env.CATALOG_KEY_ID || "")) {
+    throw new HttpError(400, "bad_key_id", "CATALOG_KEY_ID must be cat- plus lowercase letters, digits or hyphens. cat-REPLACE_ME is invalid.");
+  }
   const state = await store.getState();
   if (state.draft_revision !== draftRevision) {
     throw new CasConflictError("Draft changed; reload preview and retry");
   }
   const nextRevision = state.published_revision + 1;
   const publishedAt = isoNow(env);
-  const privateKey = await importCatalogPrivateKey(env.CATALOG_SIGNING_PKCS8);
-  const built = await buildSnapshots({
-    store, env, privateKey, revision: nextRevision, publishedAt,
-  });
-  await store.publishAtomic({
-    expectedDraft: draftRevision,
-    expectedPublished: state.published_revision,
-    nextRevision,
-    snapshots: built.snapshots,
-    deleteScopes: built.deleteScopes,
-    identities: built.identities,
-    publishedAt,
-  });
-  return {
-    publishedRevision: nextRevision,
-    publishedAt,
-    scopes: built.snapshots.map((snapshot) => snapshot.scope),
-    removedScopes: built.deleteScopes,
-  };
+  let privateKey;
+  try {
+    privateKey = await importCatalogPrivateKey(env.CATALOG_SIGNING_PKCS8);
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    throw new HttpError(500, "bad_signing_key", "CATALOG_SIGNING_PKCS8 is not a valid Ed25519 PKCS8 private key");
+  }
+  try {
+    const built = await buildSnapshots({
+      store, env, privateKey, revision: nextRevision, publishedAt,
+    });
+    await store.publishAtomic({
+      expectedDraft: draftRevision,
+      expectedPublished: state.published_revision,
+      nextRevision,
+      snapshots: built.snapshots,
+      deleteScopes: built.deleteScopes,
+      identities: built.identities,
+      publishedAt,
+    });
+    return {
+      publishedRevision: nextRevision,
+      publishedAt,
+      scopes: built.snapshots.map((snapshot) => snapshot.scope),
+      removedScopes: built.deleteScopes,
+    };
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    const message = String(error?.message || error);
+    if (/no such table/i.test(message)) {
+      throw new HttpError(503, "schema_missing", "D1 schema is incomplete. Run scripts/ensure-schema.sql");
+    }
+    throw new HttpError(500, "internal", message.slice(0, 180));
+  }
 }
 
 export function decodeEnvelopeJson(envelopeJson) {

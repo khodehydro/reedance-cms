@@ -8,8 +8,13 @@ export function catalogMessage(catalogKeyId, payloadBytes) {
 }
 
 export async function importCatalogPrivateKey(pkcs8) {
-  const der = decodePkcs8(pkcs8);
-  return crypto.subtle.importKey("pkcs8", der, { name: "Ed25519" }, false, ["sign"]);
+  try {
+    const der = decodePkcs8(pkcs8);
+    return await crypto.subtle.importKey("pkcs8", der, { name: "Ed25519" }, false, ["sign"]);
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    throw new HttpError(500, "bad_signing_key", "CATALOG_SIGNING_PKCS8 is not a valid Ed25519 PKCS8 private key");
+  }
 }
 
 export async function importCatalogPublicKey(raw32) {
