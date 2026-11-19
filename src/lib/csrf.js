@@ -13,7 +13,7 @@ export function csrfCookie(token, request) {
   return `reedance_csrf=${token}; Path=/; HttpOnly; SameSite=Strict${secure}; Max-Age=43200`;
 }
 
-function cookieValue(request, name) {
+export function cookieValue(request, name) {
   const header = request.headers.get("cookie") || "";
   const parts = header.split(";").map((part) => part.trim());
   for (const part of parts) {

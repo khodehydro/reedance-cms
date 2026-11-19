@@ -1,13 +1,14 @@
 import { LANGUAGE_RE, SONG_ID_RE } from "./constants.js";
-import { catalogConfig } from "./config.js";
 import { CasConflictError, HttpError, errorResponse, jsonError } from "./errors.js";
 import { adminHeaders, readJsonBody } from "./http.js";
 import { assertCsrfAndOrigin, createCsrfToken, csrfCookie } from "./csrf.js";
-import { requireAdminAccess } from "./access.js";
+import { catalogConfig } from "./config.js";
+import { createAdminSessionCookie, requireAdminAccess, sharedSecretConfigured, verifySharedSecret } from "./access.js";
 import { previewCatalog } from "./preview.js";
 import { publishCatalog } from "./publish.js";
 import { validateLanguageInput, validateSongInput, validateDraftUrls, compareIdentity } from "./validate.js";
 import { adminAppJs, adminCss, adminHtml } from "../admin/ui.js";
+import { unlockHtml } from "../admin/unlock.js";
 
 function jsonOk(data, request, extra = {}) {
   return new Response(JSON.stringify(data), {
@@ -54,15 +55,52 @@ export async function handleAdminRequest(request, { store, env }) {
     const path = url.pathname === "/" ? "/admin" : url.pathname;
 
     if (request.method === "GET" && (path === "/admin" || path === "/admin/")) {
-      await requireAdminAccess(request, env);
+      try {
+        await requireAdminAccess(request, env);
+      } catch (error) {
+        if (sharedSecretConfigured(env) && (error.status === 401 || error.status === 403)) {
+          return new Response(unlockHtml(), {
+            headers: adminHeaders({ "content-type": "text/html; charset=utf-8" }),
+          });
+        }
+        throw error;
+      }
       return new Response(adminHtml(), {
         headers: adminHeaders({ "content-type": "text/html; charset=utf-8" }),
       });
     }
     if (request.method === "GET" && path === "/admin/app.css") {
-      await requireAdminAccess(request, env);
       return new Response(adminCss(), {
         headers: adminHeaders({ "content-type": "text/css; charset=utf-8" }),
+      });
+    }
+    if (request.method === "POST" && path === "/admin/v1/unlock") {
+      if (!sharedSecretConfigured(env)) {
+        throw new HttpError(403, "access_denied", "Admin shared secret is not configured");
+      }
+      const origin = request.headers.get("origin");
+      const referer = request.headers.get("referer") || "";
+      const expected = catalogConfig(env).adminOrigin;
+      if (!expected || (origin !== expected && !referer.startsWith(`${expected}/`) && referer !== expected)) {
+        throw new HttpError(403, "bad_origin", "Origin does not match ADMIN_ORIGIN");
+      }
+      const type = (request.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+      let secret = "";
+      if (type === "application/x-www-form-urlencoded") {
+        const raw = await request.text();
+        secret = new URLSearchParams(raw).get("secret") || "";
+      } else {
+        const body = await readJsonBody(request);
+        secret = body.secret || "";
+      }
+      await verifySharedSecret(secret, env);
+      const location = `${expected}/admin`;
+      return new Response(null, {
+        status: 303,
+        headers: adminHeaders({
+          location,
+          "set-cookie": await createAdminSessionCookie(request, env),
+        }),
       });
     }
     if (request.method === "GET" && path === "/admin/app.js") {

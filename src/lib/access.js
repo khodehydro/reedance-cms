@@ -1,6 +1,7 @@
 import { catalogConfig } from "./config.js";
 import { HttpError } from "./errors.js";
-import { fromBase64Url, utf8Decode } from "./bytes.js";
+import { bytesEqual, fromBase64Url, toBase64Url, utf8Decode, utf8Encode } from "./bytes.js";
+import { cookieValue } from "./csrf.js";
 
 const jwksCache = new Map();
 
@@ -59,6 +60,68 @@ export async function verifyAccessJwt(token, env) {
   return { email };
 }
 
+function isPlaceholder(value) {
+  return !value || /replace/i.test(value);
+}
+
+export function cloudflareAccessConfigured(env) {
+  const config = catalogConfig(env);
+  return !isPlaceholder(config.accessTeamDomain)
+    && !isPlaceholder(config.accessAud)
+    && config.allowedEmails.length > 0;
+}
+
+export function sharedSecretConfigured(env) {
+  return Boolean(env.ADMIN_SHARED_SECRET) && env.ADMIN_SHARED_SECRET.length >= 16;
+}
+
+async function hmacHex(secret, message) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    utf8Encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", key, utf8Encode(message)));
+  return toBase64Url(sig);
+}
+
+export async function createAdminSessionCookie(request, env) {
+  const exp = Date.now() + 12 * 60 * 60 * 1000;
+  const body = `v1.${exp}`;
+  const token = `${body}.${await hmacHex(env.ADMIN_SHARED_SECRET, body)}`;
+  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
+  return `reedance_admin=${token}; Path=/; HttpOnly; SameSite=Strict${secure}; Max-Age=43200`;
+}
+
+export async function requireSharedSecretSession(request, env) {
+  const token = cookieValue(request, "reedance_admin");
+  const parts = token.split(".");
+  if (parts.length !== 3 || parts[0] !== "v1") {
+    throw new HttpError(401, "login_required", "Admin session required");
+  }
+  const body = `${parts[0]}.${parts[1]}`;
+  const exp = Number(parts[1]);
+  if (!Number.isFinite(exp) || exp < Date.now()) {
+    throw new HttpError(401, "login_required", "Admin session expired");
+  }
+  const expected = await hmacHex(env.ADMIN_SHARED_SECRET, body);
+  if (!bytesEqual(utf8Encode(parts[2]), utf8Encode(expected))) {
+    throw new HttpError(401, "login_required", "Admin session invalid");
+  }
+  return { email: "operator@local", sharedSecret: true };
+}
+
+export async function verifySharedSecret(secret, env) {
+  if (!sharedSecretConfigured(env) || typeof secret !== "string") {
+    throw new HttpError(403, "access_denied", "Admin shared secret is not configured");
+  }
+  const a = utf8Encode(secret);
+  const b = utf8Encode(env.ADMIN_SHARED_SECRET);
+  if (!bytesEqual(a, b)) throw new HttpError(403, "access_denied", "Invalid admin secret");
+}
+
 export async function requireAdminAccess(request, env) {
   const config = catalogConfig(env);
   if (config.environment === "production" && env.ALLOW_LOCAL_ADMIN === "true") {
@@ -67,10 +130,13 @@ export async function requireAdminAccess(request, env) {
   if (config.allowLocalAdmin) {
     return { email: "local-dev@invalid", local: true };
   }
-  if (!config.accessTeamDomain || !config.accessAud || config.allowedEmails.length === 0) {
-    throw new HttpError(403, "access_denied", "Admin is closed until Cloudflare Access is configured");
+  if (cloudflareAccessConfigured(env)) {
+    const jwt = request.headers.get("cf-access-jwt-assertion");
+    if (!jwt) throw new HttpError(403, "access_denied", "Missing Access assertion");
+    return verifyAccessJwt(jwt, env);
   }
-  const jwt = request.headers.get("cf-access-jwt-assertion");
-  if (!jwt) throw new HttpError(403, "access_denied", "Missing Access assertion");
-  return verifyAccessJwt(jwt, env);
+  if (sharedSecretConfigured(env)) {
+    return requireSharedSecretSession(request, env);
+  }
+  throw new HttpError(403, "access_denied", "Admin is closed until a shared secret or Cloudflare Access is configured");
 }

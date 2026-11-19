@@ -22,5 +22,7 @@ database_name = "reedance-catalog"
 database_id = "REPLACE_WITH_D1_DATABASE_ID"
 migrations_dir = "migrations"
 
-# Secrets (never commit):
+# Secrets (never commit). Zero Trust/Access is optional and asks for a card;
+# the free path is ADMIN_SHARED_SECRET instead of ACCESS_* :
 #   npx wrangler secret put CATALOG_SIGNING_PKCS8 --config wrangler.admin.toml
+#   npx wrangler secret put ADMIN_SHARED_SECRET --config wrangler.admin.toml

@@ -1,117 +1,87 @@
-# از صفر تا پنل مدیریت — reedance.ir
+# از صفر تا پنل مدیریت — بدون Zero Trust / بدون کارت
 
-دست نزن:
+`reedance.ir` (لندینگ) و `dl.reedance.ir` (دانلود) را دست نزن.
 
-- `reedance.ir` — لندینگ (Workers/Pages)
-- `dl.reedance.ir` — هاست دانلود
+Cloudflare Zero Trust برای پلن Free هم **کارت بانکی می‌خواهد** (معمولاً شارژ نمی‌کند). لازم نیست. پنل با یک **secret رایگان روی خود ورکر** قفل می‌شود.
 
-پنل اینجاست: **`https://admin-catalog.reedance.ir/admin`**
-
-API اندروید جداست: `https://catalog.reedance.ir` (بعد از پنل)
+آدرس پنل: **https://admin-catalog.reedance.ir/admin**
 
 ---
 
-## ۱. روی کامپیوتر Node و مخزن
+## ۱. مخزن روی کامپیوتر
 
-Node ۲۰ یا بالاتر. بعد:
+Node ۲۰+. 
 
 ```bash
 git clone -b arena/ba1b9c5d-reedance-cms https://github.com/khodehydro/reedance-cms.git
 cd reedance-cms
 ```
 
-## ۲. ورود به همان حساب Cloudflare
+## ۲. ورود Cloudflare (بدون Zero Trust)
 
 ```bash
 npx wrangler login
 ```
 
-باید همان حسابی باشد که دامنهٔ `reedance.ir` در آن است.
+همان حساب دامنه. صفحهٔ Zero Trust / payment را **Cancel** کن و ببند.
 
-## ۳. دیتابیس D1
+## ۳. دیتابیس D1 (رایگان Workers، کارت نمی‌خواهد)
 
 ```bash
 npx wrangler d1 create reedance-catalog
 ```
 
-از خروجی `database_id` را کپی کن. در **هر دو** فایل `wrangler.public.toml` و `wrangler.admin.toml` جای `REPLACE_WITH_D1_DATABASE_ID` بگذار.
+`database_id` را در **هر دو** `wrangler.public.toml` و `wrangler.admin.toml` جای `REPLACE_WITH_D1_DATABASE_ID` بگذار.
 
 ```bash
 npx wrangler d1 migrations apply reedance-catalog --remote --config wrangler.public.toml
 ```
 
-## ۴. کلید امضای کاتالوگ
+## ۴. دو secret (در چت نفرست)
 
 ```bash
 npm run gen:key
 ```
 
-- `catalogKeyId` → در `wrangler.admin.toml` جای `cat-REPLACE_ME`
-- PEM را در چت نگذار. در ترمینال:
+`catalogKeyId` را در `wrangler.admin.toml` جای `cat-REPLACE_ME`.
 
 ```bash
 npx wrangler secret put CATALOG_SIGNING_PKCS8 --config wrangler.admin.toml
 ```
 
-کل بلوک `BEGIN PRIVATE KEY` تا `END` را پیست کن.
-- `ed25519PublicKeyBase64url` را برای اندروید ذخیره کن.
+PEM کلید را پیست کن.
 
-## ۵. تیم Zero Trust بساز
+بعد یک رمز بلند (حداقل ۱۶ حرف) برای ورود پنل انتخاب کن و:
 
-Dashboard → **Zero Trust** (یک‌بار Free را فعال کن و نام تیم را بساز).
+```bash
+npx wrangler secret put ADMIN_SHARED_SECRET --config wrangler.admin.toml
+```
 
-آدرس تیم می‌شود چیزی مثل `reedance.cloudflareaccess.com`.  
-همین را در `wrangler.admin.toml` بگذار:
+`ACCESS_*` را خالی/REPLACE بگذار. Zero Trust نساز.
 
-`ACCESS_TEAM_DOMAIN = "reedance.cloudflareaccess.com"`
-
-`ACCESS_ALLOWED_EMAILS` را ایمیل همان حساب Cloudflare خودت بگذار.
-
-## ۶. اپلیکیشن Access برای پنل
-
-Zero Trust → Access → Applications → Add → **Self-hosted**:
-
-- Application name: `Reedance Catalog Admin`
-- Public hostname: `admin-catalog.reedance.ir`
-- Path خالی
-- Policy: **Allow** → Include → Emails → ایمیل خودت
-
-Save. از صفحهٔ Application مقدار **Application Audience (AUD)** را کپی کن و در toml:
-
-`ACCESS_AUD = "...."`
-
-## ۷. Deploy ورکر ادمین
+## ۵. Deploy ادمین
 
 ```bash
 npx wrangler deploy --config wrangler.admin.toml
 ```
 
-این ورکر `workers.dev` عمومی ندارد.
+## ۶. دامنهٔ پنل — بدون رکورد A
 
-## ۸. دامنهٔ پنل را به ورکر وصل کن
+Workers & Pages → **reedance-catalog-admin** → Custom Domain → `admin-catalog.reedance.ir`
 
-Dashboard → Workers & Pages → **reedance-catalog-admin** → Settings → Domains & Routes → **Add Custom Domain**
+به لندینگ و `dl` وصلش نکن.
 
-دامنه: `admin-catalog.reedance.ir`
+## ۷. باز کردن پنل
 
-رکورد A دستی نساز. به `reedance.ir` و `dl.reedance.ir` وصلش نکن.
+https://admin-catalog.reedance.ir/admin
 
-## ۹. باز کردن پنل
+رمز همان `ADMIN_SHARED_SECRET` است. بعد فرم زبان/آهنگ/Publish می‌آید.
 
-در مرورگر:
-
-**https://admin-catalog.reedance.ir/admin**
-
-باید صفحهٔ لاگین Cloudflare Access بیاید. با همان ایمیل Allow وارد شو. بعد فرم زبان/آهنگ/Publish ظاهر می‌شود.
-
-اگر `403` دیدی: AUD / تیم / ایمیل را چک کن و دوباره `npx wrangler deploy --config wrangler.admin.toml`.
-
-## ۱۰. بعد از بالا آمدن پنل (API اندروید)
+## ۸. API اندروید (بعد از پنل)
 
 ```bash
 npx wrangler deploy --config wrangler.public.toml
 ```
 
-Custom Domain برای `reedance-catalog-public`: `catalog.reedance.ir`
-
-تست: `https://catalog.reedance.ir/v1/languages` باید قبل از Publish مقدار **503** بدهد.
+Custom Domain: `catalog.reedance.ir`  
+تست: `https://catalog.reedance.ir/v1/languages` → قبل از Publish باید **503** باشد.

@@ -153,3 +153,36 @@ test("admin responses are no-store and HTML/JS are Access-gated", async () => {
   });
   assert.equal(closed.status, 403);
 });
+
+test("production admin can use a wrangler shared secret instead of paid Zero Trust", async () => {
+  const store = createStore();
+  const env = {
+    ENVIRONMENT: "production",
+    ADMIN_ORIGIN: "https://admin-catalog.reedance.ir",
+    ADMIN_SHARED_SECRET: "a-free-admin-secret-32chars-min",
+    ACCESS_TEAM_DOMAIN: "REPLACE_TEAM.cloudflareaccess.com",
+    ACCESS_AUD: "REPLACE_ACCESS_AUD",
+  };
+  const loginPage = await handleAdminRequest(new Request("https://admin-catalog.reedance.ir/admin"), { store, env });
+  assert.equal(loginPage.status, 200);
+  assert.match(await loginPage.text(), /ورود پنل کاتالوگ/);
+  const denied = await handleAdminRequest(new Request("https://admin-catalog.reedance.ir/admin/v1/state"), { store, env });
+  assert.equal(denied.status, 401);
+  const bad = await handleAdminRequest(new Request("https://admin-catalog.reedance.ir/admin/v1/unlock", {
+    method: "POST",
+    headers: { origin: env.ADMIN_ORIGIN, "content-type": "application/x-www-form-urlencoded" },
+    body: "secret=nope-nope-nope-nope",
+  }), { store, env });
+  assert.equal(bad.status, 403);
+  const unlock = await handleAdminRequest(new Request("https://admin-catalog.reedance.ir/admin/v1/unlock", {
+    method: "POST",
+    headers: { origin: env.ADMIN_ORIGIN, "content-type": "application/x-www-form-urlencoded" },
+    body: `secret=${env.ADMIN_SHARED_SECRET}`,
+  }), { store, env });
+  assert.equal(unlock.status, 303);
+  const cookie = (unlock.headers.get("set-cookie") || "").split(";")[0];
+  const authed = await handleAdminRequest(new Request("https://admin-catalog.reedance.ir/admin/v1/state", {
+    headers: { cookie },
+  }), { store, env });
+  assert.equal(authed.status, 200);
+});
