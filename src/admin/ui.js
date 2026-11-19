@@ -312,7 +312,7 @@ async function refresh(){
   lastLanguages = languages.languages || [];
   lastSongs = songs.songs || [];
   document.getElementById("sidebar-revisions").textContent = "draft " + state.draftRevision + " · published " + state.publishedRevision;
-  document.getElementById("sidebar-key").textContent = "key " + (state.catalogKeyId || "—");
+  document.getElementById("sidebar-key").textContent = "key " + (state.catalogKeyId || "—") + " · signing " + (state.signingKey || "—");
   const stats = document.getElementById("stats");
   stats.replaceChildren(
     stat("پیش‌نویس", state.draftRevision),

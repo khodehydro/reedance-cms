@@ -56,22 +56,42 @@ export function fromBase64Url(value, maxBytes) {
   return bytes;
 }
 
-export function decodePkcs8(input) {
-  if (!input || typeof input !== "string") throw new Error("missing PKCS8");
-  const trimmed = input.trim();
-  let b64;
-  if (trimmed.includes("BEGIN PRIVATE KEY")) {
-    b64 = trimmed.replace(/-----BEGIN [^-]+-----/g, "").replace(/-----END [^-]+-----/g, "").replace(/\s+/g, "");
-  } else if (/^[0-9a-fA-F]+$/.test(trimmed) && trimmed.length % 2 === 0) {
-    const bytes = new Uint8Array(trimmed.length / 2);
-    for (let i = 0; i < bytes.length; i += 1) bytes[i] = parseInt(trimmed.slice(i * 2, i * 2 + 2), 16);
-    return bytes;
-  } else {
-    b64 = trimmed.replace(/\s+/g, "");
+function b64ToBytes(b64) {
+  const clean = b64.replace(/-/g, "+").replace(/_/g, "/");
+  let bin;
+  try {
+    bin = atob(clean);
+  } catch {
+    throw new Error("CATALOG_SIGNING_PKCS8 is not valid base64");
   }
-  const bin = atob(b64.replace(/-/g, "+").replace(/_/g, "/"));
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+export function decodePkcs8(input) {
+  if (!input || typeof input !== "string") throw new Error("missing PKCS8");
+  const trimmed = input.replace(/^\uFEFF/, "").trim();
+  const pem = trimmed.match(/-----BEGIN ([^-]+)-----([\s\S]*?)-----END \1-----/);
+  let bytes;
+  if (pem) {
+    const label = pem[1].trim();
+    if (/OPENSSH/i.test(label)) throw new Error("OpenSSH keys are not supported; use npm run gen:key");
+    if (/RSA|EC PRIVATE|CERTIFICATE|PUBLIC/i.test(label)) {
+      throw new Error(`unsupported PEM ${label}; need PKCS8 BEGIN PRIVATE KEY`);
+    }
+    bytes = b64ToBytes(pem[2].replace(/\s+/g, ""));
+  } else if (/BEGIN /.test(trimmed)) {
+    throw new Error("PEM block is truncated; include both BEGIN and END lines");
+  } else if (/^[0-9a-fA-F]+$/.test(trimmed) && trimmed.length % 2 === 0) {
+    bytes = new Uint8Array(trimmed.length / 2);
+    for (let i = 0; i < bytes.length; i += 1) bytes[i] = parseInt(trimmed.slice(i * 2, i * 2 + 2), 16);
+  } else {
+    bytes = b64ToBytes(trimmed.replace(/\s+/g, ""));
+  }
+  if (bytes.length < 32 || bytes.length > 256) {
+    throw new Error(`decoded ${bytes.length} bytes; Ed25519 PKCS8 from npm run gen:key is about 48 bytes`);
+  }
   return bytes;
 }
 

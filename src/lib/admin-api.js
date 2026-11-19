@@ -6,6 +6,7 @@ import { catalogConfig } from "./config.js";
 import { createAdminSessionCookie, requireAdminAccess, sharedSecretConfigured, unlockOriginAllowed, verifySharedSecret } from "./access.js";
 import { previewCatalog } from "./preview.js";
 import { publishCatalog } from "./publish.js";
+import { importCatalogPrivateKey } from "./sign.js";
 import { validateLanguageInput, validateSongInput, validateDraftUrls, compareIdentity } from "./validate.js";
 import { adminAppJs, adminCss, adminHtml } from "../admin/ui.js";
 import { unlockHtml } from "../admin/unlock.js";
@@ -131,10 +132,20 @@ export async function handleAdminRequest(request, { store, env }) {
       await requireAdminAccess(request, env);
       const state = await store.getState();
       const config = catalogConfig(env);
+      let signingKey = "missing";
+      if (env.CATALOG_SIGNING_PKCS8) {
+        try {
+          await importCatalogPrivateKey(env.CATALOG_SIGNING_PKCS8);
+          signingKey = "ok";
+        } catch {
+          signingKey = "invalid";
+        }
+      }
       return jsonOk({
         draftRevision: state.draft_revision,
         publishedRevision: state.published_revision,
         catalogKeyId: config.catalogKeyId,
+        signingKey,
         supportedLanguages: [...config.supportedLanguages],
         manifestHosts: [...config.manifestHosts],
         coverHosts: [...config.coverHosts],

@@ -8,12 +8,23 @@ export function catalogMessage(catalogKeyId, payloadBytes) {
 }
 
 export async function importCatalogPrivateKey(pkcs8) {
+  let der;
   try {
-    const der = decodePkcs8(pkcs8);
-    return await crypto.subtle.importKey("pkcs8", der, { name: "Ed25519" }, false, ["sign"]);
+    der = decodePkcs8(pkcs8);
   } catch (error) {
     if (error instanceof HttpError) throw error;
-    throw new HttpError(500, "bad_signing_key", "CATALOG_SIGNING_PKCS8 is not a valid Ed25519 PKCS8 private key");
+    throw new HttpError(500, "bad_signing_key", String(error.message || error).slice(0, 180));
+  }
+  try {
+    const buf = der.buffer.slice(der.byteOffset, der.byteOffset + der.byteLength);
+    return await crypto.subtle.importKey("pkcs8", buf, { name: "Ed25519" }, false, ["sign"]);
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    throw new HttpError(
+      500,
+      "bad_signing_key",
+      `CATALOG_SIGNING_PKCS8 decoded ${der.length} bytes but is not Ed25519 PKCS8. Run npm run gen:key and put only catalog-signing.pem`,
+    );
   }
 }
 
