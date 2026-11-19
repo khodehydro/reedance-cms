@@ -26,6 +26,7 @@ export function adminHtml() {
     <div class="sidebar-meta">
       <span class="pill"><span class="status-dot"></span> فقط فراداده</span>
       <p id="sidebar-revisions">draft — · published —</p>
+      <p id="sidebar-key">key —</p>
     </div>
   </aside>
   <div class="stage">
@@ -311,6 +312,7 @@ async function refresh(){
   lastLanguages = languages.languages || [];
   lastSongs = songs.songs || [];
   document.getElementById("sidebar-revisions").textContent = "draft " + state.draftRevision + " · published " + state.publishedRevision;
+  document.getElementById("sidebar-key").textContent = "key " + (state.catalogKeyId || "—");
   const stats = document.getElementById("stats");
   stats.replaceChildren(
     stat("پیش‌نویس", state.draftRevision),

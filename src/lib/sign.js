@@ -86,7 +86,8 @@ export async function verifyEnvelope(envelope, publicKey) {
 
 export function assertProductionKey(env) {
   const environment = env.ENVIRONMENT || "production";
-  if (environment !== "development" && env.CATALOG_KEY_ID === TEST_KEY_ID) {
+  const catalogKeyId = String(env.CATALOG_KEY_ID || "").trim();
+  if (environment !== "development" && (catalogKeyId === TEST_KEY_ID || env.CATALOG_KEY_ID === TEST_KEY_ID)) {
     throw new HttpError(403, "test_key_forbidden", "cat-test-v1 cannot be used outside development");
   }
 }

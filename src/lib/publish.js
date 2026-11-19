@@ -113,8 +113,9 @@ export async function publishCatalog(store, env, { draftRevision, confirmHostFil
   if (!env.CATALOG_SIGNING_PKCS8) {
     throw new HttpError(503, "signing_unavailable", "Online publish needs CATALOG_SIGNING_PKCS8");
   }
-  if (!KEY_ID_RE.test(env.CATALOG_KEY_ID || "")) {
-    throw new HttpError(400, "bad_key_id", "CATALOG_KEY_ID must be cat- plus lowercase letters, digits or hyphens. cat-REPLACE_ME is invalid.");
+  const keyId = catalogConfig(env).catalogKeyId;
+  if (!KEY_ID_RE.test(keyId)) {
+    throw new HttpError(400, "bad_key_id", `CATALOG_KEY_ID ${JSON.stringify(keyId)} is invalid; need cat- then lowercase letters, digits or hyphens`);
   }
   const state = await store.getState();
   if (state.draft_revision !== draftRevision) {

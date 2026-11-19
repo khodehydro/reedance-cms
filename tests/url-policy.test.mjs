@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { catalogConfig, resolveCatalogKeyId } from "../src/lib/config.js";
 import { assertCoverUrl, assertManifestUrl, parseCanonicalHttpsUrl } from "../src/lib/url.js";
 
 const hosts = new Set(["content.example.invalid"]);
@@ -25,4 +26,11 @@ test("canonical HTTPS owner-host URLs are accepted; tricks are rejected", () => 
   }
   assert.throws(() => assertCoverUrl("https://images.evil.invalid/cover.webp", hosts));
   assert.throws(() => parseCanonicalHttpsUrl("https://content.example.invalid/./x/latest.json"));
+});
+
+test("placeholder CATALOG_KEY_ID maps to cat-reedance-1", () => {
+  assert.equal(resolveCatalogKeyId({ CATALOG_KEY_ID: "cat-REPLACE_ME" }), "cat-reedance-1");
+  assert.equal(resolveCatalogKeyId({ CATALOG_KEY_ID: "  cat-reedance-1  " }), "cat-reedance-1");
+  assert.equal(catalogConfig({ CATALOG_KEY_ID: "cat-REPLACE_ME" }).catalogKeyId, "cat-reedance-1");
+  assert.equal(catalogConfig({ CATALOG_KEY_ID: "cat-test-v1" }).catalogKeyId, "cat-test-v1");
 });
