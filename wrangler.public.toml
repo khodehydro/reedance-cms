@@ -10,5 +10,5 @@ ENVIRONMENT = "production"
 [[d1_databases]]
 binding = "DB"
 database_name = "reedance-catalog"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "57452c75-21a4-412f-95a1-820ffe004075"
 migrations_dir = "migrations"
